@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Дослідник Сонячної системи — інтерактивна 3D-модель</title>
+  <meta name="description" content="Інтерактивна модель Сонячної системи в браузері: Сонце, вісім планет, керування часом і масштабом, картки з характеристиками.">
+  <meta name="theme-color" content="#0B0E14">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Three.js (UMD-збірка, зафіксована версія) з офіційного CDN cdnjs; порядок скриптів важливий -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#model">Перейти до моделі</a>
+
+  <!-- Зона 2. Глобальна навігація -->
+  <header class="site-header">
+    <a class="brand" href="#model" aria-label="Дослідник Сонячної системи — на початок">
+      <svg class="brand-mark" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true" focusable="false">
+        <ellipse cx="16" cy="16" rx="14" ry="6.5" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-24 16 16)"/>
+        <circle cx="16" cy="16" r="5" fill="#FF6A1F"/>
+        <circle cx="27" cy="9.5" r="2.2" fill="#fff"/>
+      </svg>
+      <span>Дослідник Сонячної системи</span>
+    </a>
+    <nav class="site-nav" aria-label="Основна навігація">
+      <a href="#model">Модель</a>
+      <a href="#guide" class="hide-sm">Керування</a>
+      <a href="#about">Про проєкт</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Зона 1. 3D-полотно та елементи керування -->
+    <section id="model" class="stage" aria-label="Інтерактивна модель Сонячної системи">
+      <div class="scene" id="scene">
+        <canvas id="canvas" tabindex="0"
+          aria-label="Тривимірна модель Сонячної системи. Перетягуйте для обертання, використовуйте коліщатко миші або стрілки для керування."></canvas>
+        <div class="labels" id="labels" aria-hidden="true"></div>
+      </div>
+
+      <p class="loading" id="loading" role="status">Завантаження моделі…</p>
+
+      <div class="fallback" id="fallback" role="alert" hidden>
+        <h2>3D-модель недоступна</h2>
+        <p>Браузер не підтримує WebGL або бібліотека Three.js не завантажилась. Оновіть браузер, увімкніть апаратне прискорення або перевірте з’єднання з інтернетом.</p>
+        <p>Інформацію про планети все одно можна переглянути: оберіть планету у списку.</p>
+      </div>
+
+      <!-- Вступ: назва проєкту та короткий опис (FR-01) -->
+      <div class="intro" id="intro">
+        <h1>Дослідник Сонячної системи</h1>
+        <p>Сонце та вісім планет рухаються за своїми орбітами. Оберіть планету, щоб наблизитися до неї й дізнатися її розмір, відстань від Сонця, тривалість року та температуру.</p>
+        <button type="button" class="btn-primary" id="intro-start">Почати дослідження</button>
+      </div>
+
+      <!-- Вибір планети (FR-03) -->
+      <nav class="planet-nav" aria-label="Вибір планети">
+        <h2 class="sr-only">Планети</h2>
+        <ul id="planet-list"></ul>
+      </nav>
+
+      <!-- Зона 3. Панель керування часом -->
+      <div class="panel time-panel" role="group" aria-label="Керування часом">
+        <div class="time-row">
+          <button type="button" class="icon-btn" id="btn-play" aria-pressed="true" aria-label="Play, відновити рух" title="Відновити рух">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>
+            <span>Play</span>
+          </button>
+          <button type="button" class="icon-btn" id="btn-pause" aria-pressed="false" aria-label="Пауза, зупинити рух" title="Зупинити рух">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z" fill="currentColor"/></svg>
+            <span>Пауза</span>
+          </button>
+          <p class="sim-time" id="sim-time">0,0 р. · 0 діб</p>
+        </div>
+        <div class="speed-group" id="speed-group" role="group" aria-label="Швидкість руху планет"></div>
+      </div>
+
+      <!-- Зона 4. Інструменти масштабування -->
+      <div class="panel zoom-panel" role="group" aria-label="Масштаб моделі">
+        <button type="button" class="icon-btn square" id="zoom-in" aria-label="Збільшити" title="Збільшити">+</button>
+        <input type="range" id="zoom-slider" min="0" max="100" value="40" step="1" aria-label="Масштаб моделі">
+        <button type="button" class="icon-btn square" id="zoom-out" aria-label="Зменшити" title="Зменшити">−</button>
+      </div>
+
+      <!-- Зона 5. Спливаюча інформаційна картка планети (FR-04) -->
+      <aside class="info-card" id="info-card" aria-labelledby="card-title" tabindex="-1" hidden>
+        <button type="button" class="card-close" id="card-close" aria-label="Закрити картку">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+        </button>
+        <div class="card-visual" id="card-visual" aria-hidden="true"></div>
+        <h2 id="card-title">Планета</h2>
+        <p class="card-desc" id="card-desc"></p>
+        <dl class="card-stats" id="card-stats"></dl>
+      </aside>
+
+      <p class="scale-note">Розміри планет і відстані між ними на моделі умовні.</p>
+    </section>
+
+    <section id="guide" class="band">
+      <div class="band-inner">
+        <h2>Як користуватися</h2>
+        <dl class="guide-list">
+          <div>
+            <dt>Обертання</dt>
+            <dd>Перетягніть модель мишею або пальцем. З клавіатури — стрілки, коли полотно у фокусі.</dd>
+          </div>
+          <div>
+            <dt>Масштаб</dt>
+            <dd>Коліщатко миші, жест двома пальцями, кнопки «+» і «−» або повзунок. З клавіатури — клавіші «+» і «−».</dd>
+          </div>
+          <div>
+            <dt>Вибір планети</dt>
+            <dd>Клікніть на планету або її назву у списку. Камера наблизиться, рух призупиниться, відкриється картка.</dd>
+          </div>
+          <div>
+            <dt>Час</dt>
+            <dd>«Пауза» зупиняє рух, «Play» відновлює. Швидкість можна змінювати в будь-який момент, без перезавантаження.</dd>
+          </div>
+          <div>
+            <dt>Закриття картки</dt>
+            <dd>Кнопка «×» або клавіша Esc. Якщо рух зупинила картка, він відновиться сам.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section id="about" class="band band-alt">
+      <div class="band-inner">
+        <h2>Про проєкт</h2>
+        <p>«Дослідник Сонячної системи» — освітній односторінковий вебресурс. Він працює в браузері без встановлення програм і без реєстрації, а тривимірну графіку відображає за допомогою WebGL та бібліотеки Three.js.</p>
+        <p>Орбітальні періоди планет на моделі пропорційні справжнім: за швидкості ×1 Земля робить повний оберт приблизно за 12 секунд, а Нептуну для цього потрібно майже годину. Орбіти показано колами в одній площині — це спрощення.</p>
+        <p>Розміри планет і радіуси орбіт підібрано так, щоб усе було видно на одному екрані. Реальні значення діаметра та відстані наведено в інформаційних картках.</p>
+        <p>Характеристики планет наближені й подані за відкритими матеріалами NASA. Кількість відомих супутників Юпітера й Сатурна регулярно змінюється через нові відкриття, тому для цих планет вказано приблизні значення.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Навчальний проєкт з дисципліни «РПЗ». Дані про планети — за відкритими джерелами NASA.</p>
+  </footer>
+</body>
+</html>
